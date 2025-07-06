@@ -1,0 +1,62 @@
+name: AToH Build Template
+description: Submit a map creation for AToH.
+labels: [tower]
+assignees: [mawosl]
+body:
+  - type: dropdown
+    id: build_type
+    attributes:
+      label: Build Type
+      description: Select the type of build.
+      options:
+        - Steeple
+        - Tower
+        - Citadel
+        - Great Citadel
+        - Obelisk
+        - Area Hub
+        - Area Winroom
+    validations:
+      required: true
+
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Difficulty
+      description: Select the difficulty.
+      options:
+        - Easy
+        - Medium
+        - Hard
+        - Difficult
+        - Challenging
+        - Intense
+        - Remorseless
+        - Insane
+        - Extreme
+        - Terrifying
+        - Catastrophic
+        - Horrific
+        - Unreal
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Select the area.
+      options:
+        - Area 1
+        - Area 2
+        - Area 3
+        - Area 4
+        - Area 5
+        - Area 6
+        - Area 7
+        - Area 8
+        - Area 9
+        - Area 10
+        - The Obelisk
+    validations:
+      required: true
