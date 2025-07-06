@@ -1,2 +1,2 @@
-# AToHRoadmap
-I just had to make this so that the project could be public
+# AToH Roadmap
+This repo is only used as a roadmap board for the public.
