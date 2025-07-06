@@ -1,4 +1,4 @@
-name: Auto add builds to project
+name: Auto Project Assign + Labels (AToH Build Template)
 
 on:
   issues:
@@ -9,79 +9,83 @@ permissions:
   contents: read
 
 jobs:
-  assign-fields:
+  autofield:
     runs-on: ubuntu-latest
     steps:
-      - name: Add issue to project and set fields
+      - name: Add to AToH Project #10
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
-            const body = context.payload.issue.body;
+            const projectId = "PVT_kwDOCrSiBs4A9M3t";
+            const fields = {
+              buildType: {
+                id: "PVTSSF_lADOCrSiBs4A9M3tzgw-USk",
+                map: {
+                  "steeple": "a31c34f8",
+                  "tower": "5e03e9c5",
+                  "citadel": "9ef2665c",
+                  "great citadel": "0c488493",
+                  "obelisk": "875163b7",
+                  "area hub": "8cb5ca25",
+                  "area winroom": "1c41c90f"
+                }
+              },
+              difficulty: {
+                id: "PVTSSF_lADOCrSiBs4A9M3tzgw-USo",
+                map: {
+                  "easy": "4b637738",
+                  "medium": "a6de0169",
+                  "hard": "527262c1",
+                  "difficult": "ccdc7918",
+                  "challenging": "e3e4c690",
+                  "intense": "66c9032c",
+                  "remorseless": "869a82e1",
+                  "insane": "ce0cae9a",
+                  "extreme": "4fb4a825",
+                  "terrifying": "c43a65f1",
+                  "catastrophic": "afb1b97f",
+                  "horrific": "257559e5",
+                  "unreal": "d96953ee"
+                }
+              },
+              area: {
+                id: "PVTSSF_lADOCrSiBs4A9M3tzgw-USs",
+                map: {
+                  "area 1": "109c0b38",
+                  "area 2": "1004f931",
+                  "area 3": "a9a7be10",
+                  "area 4": "79b8e3fa",
+                  "area 5": "0f0b0cc3",
+                  "area 6": "6da136fc",
+                  "area 7": "17320548",
+                  "area 8": "45584adb",
+                  "area 9": "e2ec7424",
+                  "area 10": "e42a5a48",
+                  "the obelisk": "e89809fd"
+                }
+              }
+            };
 
             function extract(field) {
               const regex = new RegExp(`### ${field}\\s+([\\s\\S]*?)(?=\\n###|$)`, 'i');
-              const match = body.match(regex);
-              return match ? match[1].trim() : null;
+              const match = context.payload.issue.body.match(regex);
+              return match ? match[1].trim().toLowerCase() : null;
             }
 
             const buildType = extract("Build Type");
             const difficulty = extract("Difficulty");
             const area = extract("Area");
 
-            const projectId = "PVT_kwDOCrSiBs4A9MsU";
-            const buildTypeFieldId = "PVTSSF_lADOCrSiBs4A9MsUzgw-Pr0";
-            const difficultyFieldId = "PVTSSF_lADOCrSiBs4A9MsUzgw-Pvw";
-            const areaFieldId = "PVTSSF_lADOCrSiBs4A9MsUzgw-S2M";
+            console.log("Extracted values:", { buildType, difficulty, area });
 
-            const buildTypeOptions = {
-              "Steeple": "a31c34f8",
-              "Tower": "5e03e9c5",
-              "Citadel": "9ef2665c",
-              "Great Citadel": "0c488493",
-              "Obelisk": "875163b7",
-              "Area Hub": "8cb5ca25",
-              "Area Winroom": "1c41c90f"
-            };
+            const buildTypeId = fields.buildType.map[buildType];
+            const difficultyId = fields.difficulty.map[difficulty];
+            const areaId = fields.area.map[area];
 
-            const difficultyOptions = {
-              "Easy": "4b637738",
-              "Medium": "a6de0169",
-              "Hard": "527262c1",
-              "Difficult": "ccdc7918",
-              "Challenging": "e3e4c690",
-              "Intense": "66c9032c",
-              "Remorseless": "869a82e1",
-              "Insane": "ce0cae9a",
-              "Extreme": "4fb4a825",
-              "Terrifying": "c43a65f1",
-              "Catastrophic": "afb1b97f",
-              "Horrific": "257559e5",
-              "Unreal": "d96953ee"
-            };
+            console.log("Mapped option IDs:", { buildTypeId, difficultyId, areaId });
 
-            const areaOptions = {
-              "Area 1": "109c0b38",
-              "Area 2": "1004f931",
-              "Area 3": "a9a7be10",
-              "Area 4": "79b8e3fa",
-              "Area 5": "0f0b0cc3",
-              "Area 6": "6da136fc",
-              "Area 7": "17320548",
-              "Area 8": "45584adb",
-              "Area 9": "e2ec7424",
-              "Area 10": "e42a5a48",
-              "The Obelisk": "e89809fd"
-            };
-
-            const buildTypeOptionId = buildTypeOptions[buildType];
-            const difficultyOptionId = difficultyOptions[difficulty];
-            const areaOptionId = areaOptions[area];
-
-            if (!buildTypeOptionId && !difficultyOptionId && !areaOptionId) {
-              console.log("No valid field values extracted.");
-              return;
-            }
+            const issueId = context.payload.issue.node_id;
 
             const itemResp = await github.graphql(`
               mutation($projectId: ID!, $contentId: ID!) {
@@ -94,12 +98,17 @@ jobs:
               }
             `, {
               projectId,
-              contentId: context.payload.issue.node_id
+              contentId: issueId
             });
 
             const itemId = itemResp.addProjectV2ItemById.item.id;
 
-            async function updateField(fieldId, optionId) {
+            async function setField(fieldName, optionId) {
+              const fieldId = fields[fieldName].id;
+              if (!optionId) return;
+
+              console.log(`Setting field ${fieldName} = ${optionId}`);
+
               await github.graphql(`
                 mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
                   updateProjectV2ItemFieldValue(input: {
@@ -119,6 +128,6 @@ jobs:
               });
             }
 
-            if (buildTypeOptionId) await updateField(buildTypeFieldId, buildTypeOptionId);
-            if (difficultyOptionId) await updateField(difficultyFieldId, difficultyOptionId);
-            if (areaOptionId) await updateField(areaFieldId, areaOptionId);
+            await setField("buildType", buildTypeId);
+            await setField("difficulty", difficultyId);
+            await setField("area", areaId);
