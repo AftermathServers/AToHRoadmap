@@ -9,53 +9,47 @@ permissions:
   contents: read
 
 jobs:
-  check-member:
-    runs-on: ubuntu-latest
-    outputs:
-      allowed: ${{ steps.check.outputs.allowed }}
-    steps:
-      - name: Check if actor is member of AftermathServers
-        id: check
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.PROJECT_TOKEN }}
-          script: |
-            try {
-              await github.rest.orgs.checkMembershipForUser({
-                org: "AftermathServers",
-                username: context.actor
-              });
-              return { allowed: 'true' };
-            } catch (e) {
-              return { allowed: 'false' };
-            }
-
-      - name: Close issue if not a member
-        if: steps.check.outputs.allowed == 'false'
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.PROJECT_TOKEN }}
-          script: |
-            const issue_number = context.issue.number;
-            await github.rest.issues.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number,
-              state: "closed"
-            });
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number,
-              body: "This issue was automatically closed because only members of the AftermathServers organization can submit new issues. Please join the organization or contact an admin."
-            });
-
   autofield:
-    needs: check-member
-    if: needs.check-member.outputs.allowed == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Add to AToH Project #10
+      - name: Check if issue is in Project #10
+        id: project-check
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          result-encoding: string
+          script: |
+            const issueId = context.payload.issue.node_id;
+            const targetProjectId = "PVT_kwDOCrSiBs4A9M3t"; // Project #10
+
+            const query = `
+              query($id: ID!) {
+                node(id: $id) {
+                  ... on Issue {
+                    projectsV2Items(first: 10) {
+                      nodes {
+                        project {
+                          id
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `;
+
+            const result = await github.graphql(query, { id: issueId });
+            const items = result.node.projectsV2Items.nodes;
+
+            const found = items.some(item => item.project.id === targetProjectId);
+            console.log("Is issue in Project #10?", found);
+            return found ? 'true' : 'false';
+
+      - name: Exit if not in Project #10
+        if: steps.project-check.outputs.result != 'true'
+        run: echo "Issue is not in Project #10. Skipping automation." && exit 0
+
+      - name: Add fields to AToH Project #10
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
