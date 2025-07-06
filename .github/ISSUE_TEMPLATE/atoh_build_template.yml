@@ -1,7 +1,7 @@
 name: "AToH Build Template"
 description: "Submit a map creation for AToH."
 labels: ["tower"]
-assignees: ["mawosl", "northeastwt"]
+assignees: ["mawosl"]
 body:
   - type: dropdown
     id: build_type
