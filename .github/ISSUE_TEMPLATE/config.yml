@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 issue_templates:
-  - name: Tower Template
-    description: Submit a new tower for AToH.
-    file: tower-template.yml
+  - name: AToH Build Template
+    description: Submit a new map for AToH.
+    file: atoh_build_template.yml
