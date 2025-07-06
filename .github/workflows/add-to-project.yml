@@ -9,7 +9,50 @@ permissions:
   contents: read
 
 jobs:
+  check-member:
+    runs-on: ubuntu-latest
+    outputs:
+      allowed: ${{ steps.check.outputs.allowed }}
+    steps:
+      - name: Check if actor is member of AftermathServers
+        id: check
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            try {
+              await github.rest.orgs.checkMembershipForUser({
+                org: "AftermathServers",
+                username: context.actor
+              });
+              return { allowed: 'true' };
+            } catch (e) {
+              return { allowed: 'false' };
+            }
+
+      - name: Close issue if not a member
+        if: steps.check.outputs.allowed == 'false'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            const issue_number = context.issue.number;
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              state: "closed"
+            });
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number,
+              body: "This issue was automatically closed because only members of the AftermathServers organization can submit new issues. Please join the organization or contact an admin."
+            });
+
   autofield:
+    needs: check-member
+    if: needs.check-member.outputs.allowed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Add to AToH Project #10
@@ -77,13 +120,9 @@ jobs:
             const difficulty = extract("Difficulty");
             const area = extract("Area");
 
-            console.log("Extracted values:", { buildType, difficulty, area });
-
             const buildTypeId = fields.buildType.map[buildType];
             const difficultyId = fields.difficulty.map[difficulty];
             const areaId = fields.area.map[area];
-
-            console.log("Mapped option IDs:", { buildTypeId, difficultyId, areaId });
 
             const issueId = context.payload.issue.node_id;
 
@@ -106,8 +145,6 @@ jobs:
             async function setField(fieldName, optionId) {
               const fieldId = fields[fieldName].id;
               if (!optionId) return;
-
-              console.log(`Setting field ${fieldName} = ${optionId}`);
 
               await github.graphql(`
                 mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
