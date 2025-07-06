@@ -1,0 +1,124 @@
+name: Auto add builds to project
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  assign-fields:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add issue to project and set fields
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            const body = context.payload.issue.body;
+
+            function extract(field) {
+              const regex = new RegExp(`### ${field}\\s+([\\s\\S]*?)(?=\\n###|$)`, 'i');
+              const match = body.match(regex);
+              return match ? match[1].trim() : null;
+            }
+
+            const buildType = extract("Build Type");
+            const difficulty = extract("Difficulty");
+            const area = extract("Area");
+
+            const projectId = "PVT_kwDOCrSiBs4A9MsU";
+            const buildTypeFieldId = "PVTSSF_lADOCrSiBs4A9MsUzgw-Pr0";
+            const difficultyFieldId = "PVTSSF_lADOCrSiBs4A9MsUzgw-Pvw";
+            const areaFieldId = "PVTSSF_lADOCrSiBs4A9MsUzgw-S2M";
+
+            const buildTypeOptions = {
+              "Steeple": "a31c34f8",
+              "Tower": "5e03e9c5",
+              "Citadel": "9ef2665c",
+              "Great Citadel": "0c488493",
+              "Obelisk": "875163b7",
+              "Area Hub": "8cb5ca25",
+              "Area Winroom": "1c41c90f"
+            };
+
+            const difficultyOptions = {
+              "Easy": "4b637738",
+              "Medium": "a6de0169",
+              "Hard": "527262c1",
+              "Difficult": "ccdc7918",
+              "Challenging": "e3e4c690",
+              "Intense": "66c9032c",
+              "Remorseless": "869a82e1",
+              "Insane": "ce0cae9a",
+              "Extreme": "4fb4a825",
+              "Terrifying": "c43a65f1",
+              "Catastrophic": "afb1b97f",
+              "Horrific": "257559e5",
+              "Unreal": "d96953ee"
+            };
+
+            const areaOptions = {
+              "Area 1": "109c0b38",
+              "Area 2": "1004f931",
+              "Area 3": "a9a7be10",
+              "Area 4": "79b8e3fa",
+              "Area 5": "0f0b0cc3",
+              "Area 6": "6da136fc",
+              "Area 7": "17320548",
+              "Area 8": "45584adb",
+              "Area 9": "e2ec7424",
+              "Area 10": "e42a5a48",
+              "The Obelisk": "e89809fd"
+            };
+
+            const buildTypeOptionId = buildTypeOptions[buildType];
+            const difficultyOptionId = difficultyOptions[difficulty];
+            const areaOptionId = areaOptions[area];
+
+            if (!buildTypeOptionId && !difficultyOptionId && !areaOptionId) {
+              console.log("No valid field values extracted.");
+              return;
+            }
+
+            const itemResp = await github.graphql(`
+              mutation($projectId: ID!, $contentId: ID!) {
+                addProjectV2ItemById(input: {
+                  projectId: $projectId,
+                  contentId: $contentId
+                }) {
+                  item { id }
+                }
+              }
+            `, {
+              projectId,
+              contentId: context.payload.issue.node_id
+            });
+
+            const itemId = itemResp.addProjectV2ItemById.item.id;
+
+            async function updateField(fieldId, optionId) {
+              await github.graphql(`
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $projectId,
+                    itemId: $itemId,
+                    fieldId: $fieldId,
+                    value: { singleSelectOptionId: $optionId }
+                  }) {
+                    projectV2Item { id }
+                  }
+                }
+              `, {
+                projectId,
+                itemId,
+                fieldId,
+                optionId
+              });
+            }
+
+            if (buildTypeOptionId) await updateField(buildTypeFieldId, buildTypeOptionId);
+            if (difficultyOptionId) await updateField(difficultyFieldId, difficultyOptionId);
+            if (areaOptionId) await updateField(areaFieldId, areaOptionId);
