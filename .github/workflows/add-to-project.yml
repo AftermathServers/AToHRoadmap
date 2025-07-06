@@ -19,17 +19,20 @@ jobs:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           result-encoding: string
           script: |
-            const issueId = context.payload.issue.node_id;
-            const targetProjectId = "PVT_kwDOCrSiBs4A9M3t"; // Project #10
+            const owner = "AftermathServers";
+            const repo = "AToHRoadmap";
+            const issueNumber = context.issue.number;
+            const targetProjectId = "PVT_kwDOCrSiBs4A9M3t"; // Verified Project #10
 
             const query = `
-              query($id: ID!) {
-                node(id: $id) {
-                  ... on Issue {
-                    projectsV2Items(first: 10) {
+              query($owner: String!, $repo: String!, $issueNumber: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $issueNumber) {
+                    projectItems(first: 10) {
                       nodes {
                         project {
                           id
+                          title
                         }
                       }
                     }
@@ -38,11 +41,18 @@ jobs:
               }
             `;
 
-            const result = await github.graphql(query, { id: issueId });
-            const items = result.node.projectsV2Items.nodes;
+            const result = await github.graphql(query, {
+              owner,
+              repo,
+              issueNumber
+            });
 
+            const items = result.repository.issue.projectItems.nodes;
             const found = items.some(item => item.project.id === targetProjectId);
-            console.log("Is issue in Project #10?", found);
+
+            console.log("Project Items:");
+            items.forEach(item => console.log(`- ${item.project.title}: ${item.project.id}`));
+
             return found ? 'true' : 'false';
 
       - name: Exit if not in Project #10
@@ -154,7 +164,7 @@ jobs:
               `, {
                 projectId,
                 itemId,
-                fieldId,
+                fieldId: fieldId,
                 optionId
               });
             }
